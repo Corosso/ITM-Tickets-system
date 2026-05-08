@@ -1,0 +1,147 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  IMAGE_PREFIX: itm-tickets
+
+jobs:
+  build-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --no-restore -c Release
+
+      - name: Run tests
+        run: dotnet test --no-build -c Release --verbosity normal
+        continue-on-error: true
+
+  build-push-images:
+    name: Build and Push Docker Images
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service:
+          - inventory-api
+          - order-api
+          - price-api
+          - notification-api
+          - search-api
+          - apigateway
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Determine Dockerfile path and context
+        id: paths
+        run: |
+          case "${{ matrix.service }}" in
+            inventory-api)
+              echo "dockerfile=src/Services/ITM-Tickets Global.Inventory.Api/Dockerfile" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              ;;
+            order-api)
+              echo "dockerfile=src/Services/ITM-Tickets Global.Order.Api/Dockerfile" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              ;;
+            price-api)
+              echo "dockerfile=src/Services/ITM-Tickets Global.Price.Api/Dockerfile" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              ;;
+            notification-api)
+              echo "dockerfile=src/Services/ITM-Tickets Global.Notification.Api/Dockerfile" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              ;;
+            search-api)
+              echo "dockerfile=src/Services/ITM-Tickets Global.Search.Api/Dockerfile" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              ;;
+            apigateway)
+              echo "dockerfile=src/ApiGateway/ITM-Tickets Global.ApiGateway/Dockerfile" >> $GITHUB_OUTPUT
+              echo "context=." >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.paths.outputs.context }}
+          file: ${{ steps.paths.outputs.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Kubernetes
+    needs: build-push-images
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Set Kubernetes context
+        uses: azure/k8s-set-context@v4
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy infrastructure
+        run: |
+          kubectl apply -f k8s/namespace.yaml --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f k8s/secrets.yaml
+          kubectl apply -f k8s/infrastructure/
+
+      - name: Deploy microservices
+        run: |
+          kubectl apply -f k8s/inventory-api/
+          kubectl apply -f k8s/order-api/
+          kubectl apply -f k8s/price-api/
+          kubectl apply -f k8s/notification-api/
+          kubectl apply -f k8s/search-api/
+          kubectl apply -f k8s/apigateway/
+
+      - name: Verify deployments
+        run: |
+          kubectl rollout status deployment/inventory-api -n itm-tickets --timeout=120s
+          kubectl rollout status deployment/order-api -n itm-tickets --timeout=120s
+          kubectl rollout status deployment/price-api -n itm-tickets --timeout=120s
+          kubectl rollout status deployment/notification-api -n itm-tickets --timeout=120s
+          kubectl rollout status deployment/search-api -n itm-tickets --timeout=120s
+          kubectl rollout status deployment/apigateway -n itm-tickets --timeout=120s

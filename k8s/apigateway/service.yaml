@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: apigateway
+  namespace: itm-tickets
+  labels:
+    app: apigateway
+spec:
+  type: LoadBalancer
+  selector:
+    app: apigateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

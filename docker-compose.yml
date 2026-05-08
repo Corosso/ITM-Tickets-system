@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.0-management-alpine
+    container_name: itm-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: itm_admin
+      RABBITMQ_DEFAULT_PASS: ChangeMe123!
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: itm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: itm-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: itm_tickets
+      POSTGRES_USER: itm_admin
+      POSTGRES_PASSWORD: ChangeMe123!
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U itm_admin -d itm_tickets"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventory-api:
+    build:
+      context: .
+      dockerfile: src/Services/ITM-Tickets Global.Inventory.Api/Dockerfile
+    container_name: itm-inventory-api
+    ports:
+      - "5002:5002"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=itm_tickets;Username=itm_admin;Password=ChangeMe123!
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  order-api:
+    build:
+      context: .
+      dockerfile: src/Services/ITM-Tickets Global.Order.Api/Dockerfile
+    container_name: itm-order-api
+    ports:
+      - "5003:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=itm_tickets;Username=itm_admin;Password=ChangeMe123!
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: itm_admin
+      RabbitMQ__Password: ChangeMe123!
+      InventoryApi__GrpcUrl: http://inventory-api:5002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      inventory-api:
+        condition: service_started
+
+  price-api:
+    build:
+      context: .
+      dockerfile: src/Services/ITM-Tickets Global.Price.Api/Dockerfile
+    container_name: itm-price-api
+    ports:
+      - "5004:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      Redis__ConnectionString: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  notification-api:
+    build:
+      context: .
+      dockerfile: src/Services/ITM-Tickets Global.Notification.Api/Dockerfile
+    container_name: itm-notification-api
+    ports:
+      - "5005:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: itm_admin
+      RabbitMQ__Password: ChangeMe123!
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  search-api:
+    build:
+      context: .
+      dockerfile: src/Services/ITM-Tickets Global.Search.Api/Dockerfile
+    container_name: itm-search-api
+    ports:
+      - "5006:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: ITM-Tickets Global.ApiService/Dockerfile
+    container_name: itm-auth-api
+    ports:
+      - "5007:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+
+  apigateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/ITM-Tickets Global.ApiGateway/Dockerfile
+    container_name: itm-apigateway
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    depends_on:
+      - order-api
+      - price-api
+      - search-api
+      - notification-api
+      - auth-api
+
+volumes:
+  rabbitmq-data:
+  redis-data:
+  postgres-data:

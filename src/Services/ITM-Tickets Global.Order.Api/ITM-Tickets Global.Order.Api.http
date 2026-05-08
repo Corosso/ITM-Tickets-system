@@ -1,0 +1,6 @@
+@ITM_Tickets_Global.Order.Api_HostAddress = http://localhost:5199
+
+GET {{ITM_Tickets_Global.Order.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

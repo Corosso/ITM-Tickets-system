@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-api
+  namespace: itm-tickets
+  labels:
+    app: search-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: search-api
+  template:
+    metadata:
+      labels:
+        app: search-api
+    spec:
+      containers:
+        - name: search-api
+          image: itm-tickets/search-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:8080
+            - name: Elasticsearch__Url
+              value: http://elasticsearch.itm-tickets.svc.cluster.local:9200
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

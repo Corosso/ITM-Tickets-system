@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+option csharp_namespace = "ITM_Tickets_Global.Shared.Protos";
+
+package inventory;
+
+service InventoryService {
+  rpc ReserveSeats (ReserveSeatsRequest) returns (ReserveSeatsResponse);
+  rpc ReleaseSeats (ReleaseSeatsRequest) returns (ReleaseSeatsResponse);
+  rpc GetInventory (GetInventoryRequest) returns (GetInventoryResponse);
+  rpc CheckAvailability (CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+}
+
+message ReserveSeatsRequest {
+  string order_id = 1;
+  repeated SeatRequest seats = 2;
+}
+
+message SeatRequest {
+  string event_id = 1;
+  string section = 2;
+  int32 row = 3;
+  int32 seat_number = 4;
+  int32 quantity = 5;
+  double unit_price = 6;
+}
+
+message ReserveSeatsResponse {
+  bool success = 1;
+  string message = 2;
+  string reservation_id = 3;
+  repeated string failed_seats = 4;
+}
+
+message ReleaseSeatsRequest {
+  string order_id = 1;
+  string reservation_id = 2;
+}
+
+message ReleaseSeatsResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetInventoryRequest {
+  string event_id = 1;
+  string section = 2;
+}
+
+message GetInventoryResponse {
+  string event_id = 1;
+  repeated SectionInventory sections = 2;
+}
+
+message SectionInventory {
+  string section = 1;
+  int32 total_seats = 2;
+  int32 available_seats = 3;
+  double base_price = 4;
+}
+
+message CheckAvailabilityRequest {
+  string event_id = 1;
+  repeated SeatRequest seats = 2;
+}
+
+message CheckAvailabilityResponse {
+  bool available = 1;
+  repeated UnavailableSeat unavailable_seats = 2;
+}
+
+message UnavailableSeat {
+  string section = 1;
+  int32 row = 2;
+  int32 seat_number = 3;
+  string reason = 4;
+}

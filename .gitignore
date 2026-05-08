@@ -1,0 +1,47 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.coverage
+*.cache
+*.lock.json
+*.DotSettings.user
+*.nupkg
+**/packages/
+
+## Visual Studio
+.vs/
+*.sln.ide/
+*.rsuser
+_ReSharper*/
+.idea/
+
+## VS Code
+.vscode/
+
+## Docker
+*.tar
+*.tar.gz
+
+## OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## Secrets / Environment
+.env
+*.env.local
+*.env.production
+appsettings.*.local.json
+secrets.yaml
+!k8s/secrets.yaml
+
+## Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+## Aspire
+**/aspire-manifest.json

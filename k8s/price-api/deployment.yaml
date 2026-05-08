@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-api
+  namespace: itm-tickets
+  labels:
+    app: price-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: price-api
+  template:
+    metadata:
+      labels:
+        app: price-api
+    spec:
+      containers:
+        - name: price-api
+          image: itm-tickets/price-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:8080
+            - name: Redis__ConnectionString
+              value: redis.itm-tickets.svc.cluster.local:6379
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

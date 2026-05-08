@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apigateway
+  namespace: itm-tickets
+  labels:
+    app: apigateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: apigateway
+  template:
+    metadata:
+      labels:
+        app: apigateway
+    spec:
+      containers:
+        - name: apigateway
+          image: itm-tickets/apigateway:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:8080
+            - name: Jwt__Key
+              valueFrom:
+                secretKeyRef:
+                  name: itm-tickets-secrets
+                  key: jwt-key
+            - name: Jwt__Issuer
+              value: ITM-Tickets-Global
+            - name: Jwt__Audience
+              value: ITM-Tickets-App
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

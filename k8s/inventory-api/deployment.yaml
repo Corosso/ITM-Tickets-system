@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: itm-tickets
+  labels:
+    app: inventory-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: inventory-api
+  template:
+    metadata:
+      labels:
+        app: inventory-api
+    spec:
+      containers:
+        - name: inventory-api
+          image: itm-tickets/inventory-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http-health
+            - containerPort: 5002
+              name: grpc
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:8080;https://+:5002
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: itm-tickets-secrets
+                  key: postgres-connection
+            - name: RabbitMQ__Host
+              value: rabbitmq.itm-tickets.svc.cluster.local
+            - name: RabbitMQ__Username
+              valueFrom:
+                secretKeyRef:
+                  name: itm-tickets-secrets
+                  key: rabbitmq-username
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: itm-tickets-secrets
+                  key: rabbitmq-password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

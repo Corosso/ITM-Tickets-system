@@ -1,0 +1,29 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>4a1ea465-5ba7-4ecf-ad66-e7ce35f8a53c</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ITM-Tickets Global.ApiService\ITM-Tickets Global.ApiService.csproj" />
+    <ProjectReference Include="..\ITM-Tickets Global.Web\ITM-Tickets Global.Web.csproj" />
+    <ProjectReference Include="..\src\ApiGateway\ITM-Tickets Global.ApiGateway\ITM-Tickets Global.ApiGateway.csproj" />
+    <ProjectReference Include="..\src\Services\ITM-Tickets Global.Inventory.Api\ITM-Tickets Global.Inventory.Api.csproj" />
+    <ProjectReference Include="..\src\Services\ITM-Tickets Global.Order.Api\ITM-Tickets Global.Order.Api.csproj" />
+    <ProjectReference Include="..\src\Services\ITM-Tickets Global.Price.Api\ITM-Tickets Global.Price.Api.csproj" />
+    <ProjectReference Include="..\src\Services\ITM-Tickets Global.Notification.Api\ITM-Tickets Global.Notification.Api.csproj" />
+    <ProjectReference Include="..\src\Services\ITM-Tickets Global.Search.Api\ITM-Tickets Global.Search.Api.csproj" />
+  </ItemGroup>
+
+</Project>
