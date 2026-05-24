@@ -1,0 +1,21 @@
+<Solution>
+  <!--
+    Solution dedicado a CI/CD. Es idéntico a "ITM-Tickets Global.slnx" excepto
+    que NO incluye el proyecto MauiApp, porque los runners de GitHub Actions
+    no traen los workloads de MAUI (maui-android, maui-windows) preinstalados.
+    El enunciado solo exige construir y publicar las imágenes Docker de los
+    servicios; la app MAUI se compila localmente desde el solution principal.
+  -->
+  <Project Path="ITM-Tickets Global.ApiService/ITM-Tickets Global.ApiService.csproj" />
+  <Project Path="ITM-Tickets Global.AppHost/ITM-Tickets Global.AppHost.csproj" />
+  <Project Path="ITM-Tickets Global.ServiceDefaults/ITM-Tickets Global.ServiceDefaults.csproj" />
+  <Project Path="ITM-Tickets Global.Web/ITM-Tickets Global.Web.csproj" />
+  <Project Path="src\Shared\ITM-Tickets Global.Shared\ITM-Tickets Global.Shared.csproj" />
+  <Project Path="src\ApiGateway\ITM-Tickets Global.ApiGateway\ITM-Tickets Global.ApiGateway.csproj" />
+  <Project Path="src\Services\ITM-Tickets Global.Inventory.Api\ITM-Tickets Global.Inventory.Api.csproj" />
+  <Project Path="src\Services\ITM-Tickets Global.Order.Api\ITM-Tickets Global.Order.Api.csproj" />
+  <Project Path="src\Services\ITM-Tickets Global.Price.Api\ITM-Tickets Global.Price.Api.csproj" />
+  <Project Path="src\Services\ITM-Tickets Global.Search.Api\ITM-Tickets Global.Search.Api.csproj" />
+  <Project Path="src\Services\ITM-Tickets Global.Notification.Api\ITM-Tickets Global.Notification.Api.csproj" />
+  <Project Path="tests\ITM-Tickets Global.Tests\ITM-Tickets Global.Tests.csproj" />
+</Solution>

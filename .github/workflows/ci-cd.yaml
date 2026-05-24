@@ -9,29 +9,40 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_PREFIX: itm-tickets
+  # Namespace en Docker Hub. Por defecto se usa el usuario que viene del secret
+  # DOCKER_HUB_USERNAME, así no hay que editar el workflow para cada cuenta.
+  # Si subes a una organización, sobrescribe esta variable en el repo
+  # (Settings -> Secrets and variables -> Actions -> Variables -> DOCKER_HUB_NAMESPACE).
+  IMAGE_PREFIX: ${{ vars.DOCKER_HUB_NAMESPACE || secrets.DOCKER_HUB_USERNAME }}
 
 jobs:
   build-test:
     name: Build and Test
     runs-on: ubuntu-latest
+    # Apunta al solution "Server", que excluye el proyecto MAUI. El runner de
+    # Ubuntu no trae los workloads maui-android/maui-windows preinstalados,
+    # y compilar el MAUI no es necesario para el pipeline: el enunciado solo
+    # exige construir y publicar las imágenes Docker de los servicios.
+    env:
+      SOLUTION: ITM-Tickets Global.Server.slnx
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore "$SOLUTION"
 
       - name: Build solution
-        run: dotnet build --no-restore -c Release
+        run: dotnet build "$SOLUTION" --no-restore -c Release
 
       - name: Run tests
-        run: dotnet test --no-build -c Release --verbosity normal
+        run: dotnet test "$SOLUTION" --no-build -c Release --verbosity normal
         continue-on-error: true
 
   build-push-images:
@@ -50,7 +61,7 @@ jobs:
           - apigateway
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -107,10 +118,15 @@ jobs:
     name: Deploy to Kubernetes
     needs: build-push-images
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # El despliegue a un clúster Kubernetes remoto es opcional. Se activa solo si
+    # el repo define la variable ENABLE_K8S_DEPLOY=true y el secret KUBE_CONFIG.
+    # En este proyecto el clúster de demostración corre en Docker Desktop local,
+    # por lo que este job permanece deshabilitado por defecto y el pipeline
+    # cumple el enunciado solo con build + test + push a Docker Hub.
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_K8S_DEPLOY == 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
