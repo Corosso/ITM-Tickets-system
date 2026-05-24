@@ -70,3 +70,18 @@ public record TicketIssued(
     int SeatNumber,
     string QrCode
 );
+
+/// <summary>
+/// Evento publicado por Order.Api (Saga) cuando la orden se confirma.
+/// Consumido por Notification.Api para empujar la confirmación vía SignalR
+/// al cliente MAUI. AMBOS servicios DEBEN usar este tipo desde acá para
+/// que MassTransit los routee al mismo exchange en RabbitMQ.
+/// </summary>
+public record OrderConfirmedEvent
+{
+    public Guid OrderId { get; init; }
+    public Guid UserId { get; init; }
+    public string Email { get; init; } = string.Empty;
+    public DateTime ConfirmedAt { get; init; }
+    public List<TicketIssued> Tickets { get; init; } = [];
+}

@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAspireSharedProject>true</IsAspireSharedProject>
+    <!-- Las advertencias NU1902 vienen de OpenTelemetry 1.14.x (advisories moderate-severity).
+         Los fixes no están disponibles para .NET 10 todavía. No bloquean compilación. -->
+    <NoWarn>$(NoWarn);NU1902</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

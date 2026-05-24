@@ -29,14 +29,19 @@ public record OrderItemData
 
 public class OrderStateMachine : MassTransitStateMachine<OrderState>
 {
-    public State Created { get; private set; }
-    public State AwaitingInventory { get; private set; }
-    public State Confirmed { get; private set; }
-    public State Cancelled { get; private set; }
+    // MassTransit inicializa estas propiedades por reflexión en el constructor de
+    // la state machine; el "= null!" silencia el CS8618 ya que el compilador no
+    // ve esa inicialización.
+    public State Created { get; private set; } = null!;
+    public State AwaitingInventory { get; private set; } = null!;
+    public State Confirmed { get; private set; } = null!;
+    public State Cancelled { get; private set; } = null!;
 
-    public Event<OrderCreatedEvent> OrderCreated { get; private set; }
-    public Event<InventoryReservedEvent> InventoryReserved { get; private set; }
-    public Event<InventoryReservationFailedEvent> InventoryReservationFailed { get; private set; }
+    public Event<OrderCreatedEvent> OrderCreated { get; private set; } = null!;
+    public Event<InventoryReservedEvent> InventoryReserved { get; private set; } = null!;
+    public Event<InventoryReservationFailedEvent> InventoryReservationFailed { get; private set; } = null!;
+    // Nota: OrderConfirmedEvent vive en Shared.Events y solo lo publicamos
+    // (no esperamos su consumo en este Saga), por eso no se declara como Event<>.
 
     public OrderStateMachine()
     {
@@ -81,7 +86,7 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                     context.Saga.ReservationId = context.Message.ReservationId;
                     context.Saga.ConfirmedAt = DateTime.UtcNow;
                 })
-                .Publish(context => new OrderConfirmedEvent
+                .Publish(context => new Shared.Events.OrderConfirmedEvent
                 {
                     OrderId = context.Saga.OrderId,
                     UserId = context.Saga.UserId,
@@ -139,14 +144,9 @@ public record InventoryReservationFailedEvent
     public string Reason { get; init; } = string.Empty;
 }
 
-public record OrderConfirmedEvent
-{
-    public Guid OrderId { get; init; }
-    public Guid UserId { get; init; }
-    public string Email { get; init; } = string.Empty;
-    public DateTime ConfirmedAt { get; init; }
-    public List<Shared.Events.TicketIssued> Tickets { get; init; } = [];
-}
+// OrderConfirmedEvent vive en ITM_Tickets_Global.Shared.Events para que tanto
+// Order.Api (publisher) como Notification.Api (consumer) usen el MISMO tipo
+// y MassTransit los routee al mismo exchange en RabbitMQ.
 
 public record OrderCancelledEvent
 {

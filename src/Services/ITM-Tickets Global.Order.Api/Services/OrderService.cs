@@ -1,28 +1,47 @@
+using ITM_Tickets_Global.Order.Api.Data;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 
 namespace ITM_Tickets_Global.Order.Api.Services;
 
+/// <summary>
+/// Orquesta la creación de órdenes. Persiste el registro en PostgreSQL y
+/// dispara el Saga de inventario vía RabbitMQ.
+/// </summary>
 public class OrderService
 {
     private readonly IBus _bus;
+    private readonly OrderDbContext _db;
     private readonly ILogger<OrderService> _logger;
-    private static readonly Dictionary<Guid, (string Status, DateTime Created)> Orders = [];
 
-    public OrderService(IBus bus, ILogger<OrderService> logger)
+    public OrderService(IBus bus, OrderDbContext db, ILogger<OrderService> logger)
     {
         _bus = bus;
+        _db = db;
         _logger = logger;
     }
 
     public async Task<(bool Success, Guid OrderId, string? Error)> CreateOrderAsync(CreateOrderRequest request)
     {
-        var orderId = Guid.NewGuid();
+        if (request.Items.Count == 0)
+        {
+            return (false, Guid.Empty, "La orden debe tener al menos un asiento");
+        }
 
+        var orderId = Guid.NewGuid();
         var items = request.Items.Select(i => new Shared.Events.OrderItemMessage(
             i.EventId, i.Section, i.Row, i.SeatNumber, i.Quantity, i.UnitPrice
         )).ToList();
 
-        Orders[orderId] = ("Processing", DateTime.UtcNow);
+        _db.Orders.Add(new OrderRecord
+        {
+            Id = orderId,
+            UserId = request.UserId,
+            Email = request.Email,
+            Status = "Processing",
+            CreatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
 
         await _bus.Publish(new Sagas.OrderCreatedEvent
         {
@@ -33,24 +52,23 @@ public class OrderService
             Items = items
         });
 
-        _logger.LogInformation("Order {OrderId} created and published to SAGA. User: {UserId}", orderId, request.UserId);
+        _logger.LogInformation("Orden {OrderId} creada y publicada al Saga. Usuario={UserId}", orderId, request.UserId);
 
         return (true, orderId, null);
     }
 
-    public Task<OrderStatusResponse?> GetOrderStatusAsync(Guid orderId)
+    public async Task<OrderStatusResponse?> GetOrderStatusAsync(Guid orderId)
     {
-        if (Orders.TryGetValue(orderId, out var order))
+        var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId);
+        if (order is null) return null;
+
+        return new OrderStatusResponse
         {
-            return Task.FromResult<OrderStatusResponse?>(new OrderStatusResponse
-            {
-                OrderId = orderId,
-                Status = order.Status,
-                UpdatedAt = order.Created,
-                Tickets = null
-            });
-        }
-        return Task.FromResult<OrderStatusResponse?>(null);
+            OrderId = orderId,
+            Status = order.Status,
+            UpdatedAt = order.CreatedAt,
+            Tickets = null
+        };
     }
 }
 

@@ -42,11 +42,38 @@ services:
       POSTGRES_PASSWORD: ChangeMe123!
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U itm_admin -d itm_tickets"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: itm-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -E 'green|yellow'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: itm-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
 
   inventory-api:
     build:
@@ -54,7 +81,7 @@ services:
       dockerfile: src/Services/ITM-Tickets Global.Inventory.Api/Dockerfile
     container_name: itm-inventory-api
     ports:
-      - "5002:5002"
+      - "5002:8080"
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__DefaultConnection: Host=postgres;Database=itm_tickets;Username=itm_admin;Password=ChangeMe123!
@@ -71,11 +98,9 @@ services:
       - "5003:8080"
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Database=itm_tickets;Username=itm_admin;Password=ChangeMe123!
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: itm_admin
-      RabbitMQ__Password: ChangeMe123!
-      InventoryApi__GrpcUrl: http://inventory-api:5002
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=itm_tickets_orders;Username=itm_admin;Password=ChangeMe123!
+      ConnectionStrings__RabbitMQ: amqp://itm_admin:ChangeMe123!@rabbitmq:5672
+      services__inventory-api__http__0: http://inventory-api:8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,7 +118,7 @@ services:
       - "5004:8080"
     environment:
       ASPNETCORE_URLS: http://+:8080
-      Redis__ConnectionString: redis:6379
+      ConnectionStrings__Redis: redis:6379
     depends_on:
       redis:
         condition: service_healthy
@@ -107,9 +132,7 @@ services:
       - "5005:8080"
     environment:
       ASPNETCORE_URLS: http://+:8080
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__Username: itm_admin
-      RabbitMQ__Password: ChangeMe123!
+      ConnectionStrings__RabbitMQ: amqp://itm_admin:ChangeMe123!@rabbitmq:5672
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -123,6 +146,14 @@ services:
       - "5006:8080"
     environment:
       ASPNETCORE_URLS: http://+:8080
+      Elasticsearch__Uri: http://elasticsearch:9200
+      Qdrant__Host: qdrant
+      Qdrant__Port: "6334"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
 
   auth-api:
     build:
@@ -143,6 +174,11 @@ services:
       - "8080:8080"
     environment:
       ASPNETCORE_URLS: http://+:8080
+      services__auth-api__http__0: http://auth-api:8080
+      services__order-api__http__0: http://order-api:8080
+      services__price-api__http__0: http://price-api:8080
+      services__search-api__http__0: http://search-api:8080
+      services__notification-api__http__0: http://notification-api:8080
     depends_on:
       - order-api
       - price-api
@@ -154,3 +190,5 @@ volumes:
   rabbitmq-data:
   redis-data:
   postgres-data:
+  elastic-data:
+  qdrant-data:

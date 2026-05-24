@@ -29,21 +29,14 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: itm-tickets-secrets
-                  key: postgres-connection
-            - name: RabbitMQ__Host
-              value: rabbitmq.itm-tickets.svc.cluster.local
-            - name: RabbitMQ__Username
+                  key: postgres-orders-connection
+            - name: ConnectionStrings__RabbitMQ
               valueFrom:
                 secretKeyRef:
                   name: itm-tickets-secrets
-                  key: rabbitmq-username
-            - name: RabbitMQ__Password
-              valueFrom:
-                secretKeyRef:
-                  name: itm-tickets-secrets
-                  key: rabbitmq-password
-            - name: InventoryApi__GrpcUrl
-              value: http://inventory-api.itm-tickets.svc.cluster.local:5002
+                  key: rabbitmq-connection
+            - name: services__inventory-api__http__0
+              value: http://inventory-api.itm-tickets.svc.cluster.local:8080
           resources:
             requests:
               cpu: 100m

@@ -1,3 +1,4 @@
+using ITM_Tickets_Global.ServiceDefaults.CorrelationId;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,10 @@ public static class Extensions
 
         builder.Services.AddServiceDiscovery();
 
+        // Correlation ID propagado entre TODOS los HttpClient (incluyendo gRPC sobre HTTP/2,
+        // YARP outgoing y llamadas REST entre servicios).
+        builder.Services.AddTransient<CorrelationIdHttpHandler>();
+
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
             // Turn on resilience by default
@@ -33,6 +38,9 @@ public static class Extensions
 
             // Turn on service discovery by default
             http.AddServiceDiscovery();
+
+            // Inyecta el header X-Correlation-Id en cada request saliente.
+            http.AddHttpMessageHandler<CorrelationIdHttpHandler>();
         });
 
         // Uncomment the following to restrict the allowed schemes for service discovery.
@@ -122,6 +130,17 @@ public static class Extensions
             });
         }
 
+        return app;
+    }
+
+    /// <summary>
+    /// Activa el middleware de Correlation ID. Debe llamarse al inicio del pipeline,
+    /// antes de autenticación/autorización, para que TODO log emitido durante la
+    /// petición incluya el correlation id.
+    /// </summary>
+    public static WebApplication UseCorrelationId(this WebApplication app)
+    {
+        app.UseMiddleware<CorrelationIdMiddleware>();
         return app;
     }
 }

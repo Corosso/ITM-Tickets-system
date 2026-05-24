@@ -10,9 +10,8 @@ spec:
   selector:
     app: inventory-api
   ports:
-    - name: http-health
+    - name: http
       port: 8080
       targetPort: 8080
-    - name: grpc
-      port: 5002
-      targetPort: 5002
+      appProtocol: http
+    # Kubernetes (con HTTP/2 habilitado en Kestrel) ya soporta gRPC en el mismo puerto 8080.

@@ -1,0 +1,151 @@
+# =============================================================================
+# ITM-Tickets Global — Manifiesto de verificación de Self-healing en K8s
+#
+# Despliega un Pod gestionado por Kubernetes que permite verificar el
+# requerimiento de la rúbrica:
+#
+#     "Simular la caída de un Pod y mostrar cómo Kubernetes lo recupera."
+#
+# El cluster es el que viene integrado con Docker Desktop
+# (Settings → Kubernetes → Enable Kubernetes). No hace falta minikube, kind,
+# AKS ni nada externo: el mismo Docker que ejecuta los containers del sistema
+# expone un cluster K8s de un solo nodo (docker-desktop).
+#
+# El Deployment usa la misma imagen local que Terraform construye para el
+# servicio inventory-api. imagePullPolicy: Never le dice a kubelet que use la
+# imagen que ya está en el daemon, no que vaya a buscar a Docker Hub.
+#
+# Nota: si Docker Desktop tiene activado "Use containerd for pulling and
+# storing images" (Settings → General), las imágenes de `docker build` no son
+# visibles para Kubernetes y este manifiesto fallará con ErrImageNeverPull.
+# En ese caso usar self-healing-demo-nginx.yaml, que es equivalente con una
+# imagen pública.
+#
+# El comando del container se sobrescribe con un loop de eco: el Pod queda
+# saludable, kubelet lo considera Ready, y cualquier "muerte" (kubectl delete
+# pod, o un crash dentro del container) dispara la reconciliación del
+# Deployment Controller, que vuelve a crear el Pod hasta llegar al replicas
+# deseado. Ese es el mecanismo de self-healing de K8s.
+# =============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: itm-tickets
+  labels:
+    app.kubernetes.io/name: itm-tickets-global
+    app.kubernetes.io/part-of: world-tour-2026
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: itm-tickets
+  labels:
+    app: inventory-api
+    app.kubernetes.io/name: inventory-api
+    app.kubernetes.io/part-of: itm-tickets-global
+spec:
+  # 1 réplica deseada. Si el Pod muere, el Deployment Controller del
+  # control-plane reconcilia: detecta que tiene 0 réplicas pero quiere 1,
+  # y crea un Pod nuevo. Eso es self-healing.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-api
+  # ProgressDeadlineSeconds: si el rollout no avanza en este tiempo el
+  # Deployment se marca como Failed. Útil para que kubectl rollout status
+  # no espere indefinidamente si algo se rompe.
+  progressDeadlineSeconds: 60
+  template:
+    metadata:
+      labels:
+        app: inventory-api
+    spec:
+      # restartPolicy: Always significa que si el container muere DENTRO del
+      # Pod (sin que el Pod entero sea borrado), kubelet lo reinicia en el
+      # mismo Pod. Si el Pod entero muere o es borrado, el Deployment
+      # Controller crea uno nuevo. Las dos capas de self-healing operan.
+      restartPolicy: Always
+      containers:
+      - name: inventory-api
+        # Imagen local construida por Terraform via docker build.
+        # No existe en ningún registry remoto → imagePullPolicy: Never.
+        image: itm-tickets-local/inventory-api:latest
+        imagePullPolicy: Never
+        # Sobrescribimos el ENTRYPOINT de la imagen .NET para evitar que el
+        # container intente conectarse a Postgres/RabbitMQ (que viven en la
+        # red bridge de Docker, no en la red de Pods de K8s). El objeto bajo
+        # verificación acá es la gestión del ciclo de vida del Pod por parte
+        # de K8s. El loop imprime cada 5 segundos para que en `kubectl logs`
+        # se vea claramente que el Pod recreado es uno nuevo (PID y
+        # timestamps cambian).
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "================================================="
+            echo "ITM-Tickets Global — inventory-api Pod"
+            echo "Pod name:     ${HOSTNAME}"
+            echo "Started at:   $(date -Iseconds)"
+            echo "Purpose:      self-healing (K8s reconciliation)"
+            echo "================================================="
+            tick=0
+            while true; do
+              tick=$((tick+1))
+              echo "[$(date -Iseconds)] Pod ${HOSTNAME} alive — tick #${tick}"
+              sleep 5
+            done
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        # Liveness probe: kubelet ejecuta este comando dentro del container
+        # cada 10s. Si falla 3 veces seguidas, mata el container (que es
+        # reiniciado por restartPolicy: Always). Si en cambio el Pod entero
+        # es borrado, entra el Deployment Controller.
+        livenessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "test -f /proc/1/status"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "test -f /proc/1/status"]
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        # Recursos mínimos: arranca rápido, no compite con los containers
+        # de Docker que están corriendo en paralelo.
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+      # terminationGracePeriodSeconds: cuánto espera kubelet entre SIGTERM y
+      # SIGKILL. Lo bajamos a 5s para que `kubectl delete pod` sea rápido y
+      # el comportamiento reactivo se observe sin esperas largas.
+      terminationGracePeriodSeconds: 5
+
+---
+# Service ClusterIP. No es estrictamente necesario para la verificación de
+# self-healing, pero deja el inventory-api expuesto dentro del cluster por
+# si después se quiere conectar otra cosa.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-api
+  namespace: itm-tickets
+  labels:
+    app: inventory-api
+spec:
+  type: ClusterIP
+  selector:
+    app: inventory-api
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP

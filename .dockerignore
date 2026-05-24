@@ -1,0 +1,21 @@
+# Carpetas pesadas que NO deben entrar al contexto de docker build.
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/.idea
+.git
+.github
+**/node_modules
+**/wwwroot/lib
+
+# Outputs de Terraform y caches.
+infra/terraform/.terraform
+infra/terraform/*.tfstate*
+
+# Archivos del IDE.
+*.user
+*.suo
+
+# Documentación que no necesita entrar al contexto del build.
+*.md

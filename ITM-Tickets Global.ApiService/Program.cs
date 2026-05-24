@@ -36,12 +36,13 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCorrelationId();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/", () => "ITM-Tickets Global Auth Service");
 
-app.MapPost("/auth/login", (LoginRequest request) =>
+app.MapPost("/api/auth/login", (LoginRequest request) =>
 {
     if (request.Username == "admin" && request.Password == "admin123" ||
         request.Username == "user" && request.Password == "user123")
@@ -71,12 +72,12 @@ app.MapPost("/auth/login", (LoginRequest request) =>
     return Results.Unauthorized();
 });
 
-app.MapPost("/auth/register", (RegisterRequest request) =>
+app.MapPost("/api/auth/register", (RegisterRequest request) =>
 {
     return Results.Ok(new { Message = $"User {request.Username} registered successfully", Success = true });
 });
 
-app.MapGet("/auth/validate", (HttpContext context) =>
+app.MapGet("/api/auth/validate", (HttpContext context) =>
 {
     if (context.User.Identity?.IsAuthenticated == true)
     {

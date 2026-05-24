@@ -1,43 +1,105 @@
-using ITM_Tickets_Global.Shared.Dtos;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.QueryDsl;
+using ITM_Tickets_Global.Search.Api.Models;
+using Qdrant.Client;
+// Alias para evitar colisión entre Shared.Dtos.SearchResponse y Qdrant.Client.Grpc.SearchResponse
+using SearchResponse = ITM_Tickets_Global.Shared.Dtos.SearchResponse;
 
 namespace ITM_Tickets_Global.Search.Api.Services;
 
+/// <summary>
+/// Búsqueda híbrida: combina match textual de Elasticsearch con búsqueda
+/// semántica de Qdrant. Si el usuario provee `vibe`, los resultados se
+/// reordenan combinando el score textual con la similitud coseno del vector.
+/// </summary>
 public class SearchService
 {
+    public const string ElasticIndex = "events";
+    public const string QdrantCollection = "events_vec";
+
+    private readonly ElasticsearchClient _es;
+    private readonly QdrantClient _qdrant;
+    private readonly EmbeddingService _embeddings;
     private readonly ILogger<SearchService> _logger;
 
-    public SearchService(ILogger<SearchService> logger)
+    public SearchService(
+        ElasticsearchClient es,
+        QdrantClient qdrant,
+        EmbeddingService embeddings,
+        ILogger<SearchService> logger)
     {
+        _es = es;
+        _qdrant = qdrant;
+        _embeddings = embeddings;
         _logger = logger;
     }
 
     public async Task<List<SearchResponse>> SearchAsync(string query, string? vibe = null)
     {
-        _logger.LogInformation("Searching for '{Query}' with vibe '{Vibe}'", query, vibe ?? "none");
+        _logger.LogInformation("Buscando '{Query}' (vibe='{Vibe}')", query, vibe ?? "-");
 
-        await Task.Delay(100);
-
-        var results = new List<SearchResponse>
+        // 1) Búsqueda textual en Elasticsearch.
+        var multiMatch = new MultiMatchQuery
         {
-            new(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Festival de los Dos Mundos - Noche Inaugural",
-                "Espectáculo de apertura con artistas de Colombia y España", "Teatro Metropolitano", "Medellín",
-                DateTime.UtcNow.AddDays(30), 0.95),
-            new(Guid.Parse("22222222-2222-2222-2222-222222222222"), "Festival de los Dos Mundos - Jazz Fusión",
-                "Encuentro de jazz con músicos internacionales", "Auditorio Nacional", "Madrid",
-                DateTime.UtcNow.AddDays(32), 0.85),
-            new(Guid.Parse("33333333-3333-3333-3333-333333333333"), "Festival de los Dos Mundos - Danza Contemporánea",
-                "Fusión de flamenco y danza colombiana", "Teatro Metropolitano", "Medellín",
-                DateTime.UtcNow.AddDays(33), 0.78)
+            Query = query ?? string.Empty,
+            Fields = Fields.FromStrings(new[] { "name^3", "description", "venue", "city", "tags" }),
+            Fuzziness = new Fuzziness("AUTO")
         };
 
-        if (!string.IsNullOrEmpty(vibe))
+        var esRequest = new SearchRequest<EventDocument>(ElasticIndex)
         {
-            results = results.Where(r =>
-                r.Name.Contains(vibe, StringComparison.OrdinalIgnoreCase) ||
-                r.Description.Contains(vibe, StringComparison.OrdinalIgnoreCase)
-            ).ToList();
+            Size = 20,
+            Query = multiMatch
+        };
+
+        var esResp = await _es.SearchAsync<EventDocument>(esRequest);
+
+        var textualHits = esResp.IsValidResponse
+            ? esResp.Hits.Where(h => h.Source != null)
+                .Select(h => (Doc: h.Source!, Score: (double)(h.Score ?? 0))).ToList()
+            : new List<(EventDocument Doc, double Score)>();
+
+        // 2) Si hay vibe, búsqueda semántica en Qdrant.
+        var semanticBoost = new Dictionary<Guid, double>();
+        if (!string.IsNullOrWhiteSpace(vibe))
+        {
+            try
+            {
+                var vector = _embeddings.Embed(vibe);
+                var qResp = await _qdrant.SearchAsync(
+                    collectionName: QdrantCollection,
+                    vector: vector,
+                    limit: 10);
+
+                foreach (var point in qResp)
+                {
+                    if (point.Payload.TryGetValue("event_id", out var idVal)
+                        && Guid.TryParse(idVal.StringValue, out var id))
+                    {
+                        semanticBoost[id] = point.Score;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Qdrant no respondió, devolvemos solo resultados textuales");
+            }
         }
 
-        return results;
+        // 3) Fusión: ordenamos por (score textual) + (semantic boost * 2).
+        var merged = textualHits
+            .Select(h => new
+            {
+                h.Doc,
+                Score = h.Score + (semanticBoost.GetValueOrDefault(h.Doc.Id, 0) * 2)
+            })
+            .OrderByDescending(x => x.Score)
+            .Take(10)
+            .ToList();
+
+        return merged.Select(m => new SearchResponse(
+            m.Doc.Id, m.Doc.Name, m.Doc.Description,
+            m.Doc.Venue, m.Doc.City, m.Doc.StartDate, m.Score
+        )).ToList();
     }
 }

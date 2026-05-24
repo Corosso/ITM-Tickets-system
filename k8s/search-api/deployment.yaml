@@ -25,8 +25,12 @@ spec:
           env:
             - name: ASPNETCORE_URLS
               value: http://+:8080
-            - name: Elasticsearch__Url
+            - name: Elasticsearch__Uri
               value: http://elasticsearch.itm-tickets.svc.cluster.local:9200
+            - name: Qdrant__Host
+              value: qdrant.itm-tickets.svc.cluster.local
+            - name: Qdrant__Port
+              value: "6334"
           resources:
             requests:
               cpu: 100m

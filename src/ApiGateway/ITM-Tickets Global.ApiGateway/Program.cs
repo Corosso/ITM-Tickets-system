@@ -27,7 +27,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("Default", policy =>
+    // OJO: el nombre "Default" está reservado por YARP; usar otro nombre.
+    options.AddPolicy("Authenticated", policy =>
     {
         policy.RequireAuthenticatedUser();
     });
@@ -55,6 +56,7 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
+app.UseCorrelationId();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
@@ -102,7 +104,7 @@ static RouteConfig[] GetRoutes() =>
         RouteId = "orders",
         ClusterId = "orders-cluster",
         Match = new RouteMatch { Path = "/api/orders/{**catch-all}" },
-        AuthorizationPolicy = "Default"
+        AuthorizationPolicy = "Authenticated"
     },
     new RouteConfig
     {
@@ -121,7 +123,7 @@ static RouteConfig[] GetRoutes() =>
         RouteId = "notifications",
         ClusterId = "notifications-cluster",
         Match = new RouteMatch { Path = "/api/notifications/{**catch-all}" },
-        AuthorizationPolicy = "Default"
+        AuthorizationPolicy = "Authenticated"
     }
 ];
 
@@ -132,7 +134,7 @@ static ClusterConfig[] GetClusters() =>
         ClusterId = "auth-cluster",
         Destinations = new Dictionary<string, DestinationConfig>
         {
-            ["auth-api"] = new() { Address = "https://auth-api" }
+            ["auth-api"] = new() { Address = "http://auth-api:8080" }
         }
     },
     new ClusterConfig
@@ -140,7 +142,7 @@ static ClusterConfig[] GetClusters() =>
         ClusterId = "orders-cluster",
         Destinations = new Dictionary<string, DestinationConfig>
         {
-            ["order-api"] = new() { Address = "https://order-api" }
+            ["order-api"] = new() { Address = "http://order-api:8080" }
         }
     },
     new ClusterConfig
@@ -148,7 +150,7 @@ static ClusterConfig[] GetClusters() =>
         ClusterId = "prices-cluster",
         Destinations = new Dictionary<string, DestinationConfig>
         {
-            ["price-api"] = new() { Address = "https://price-api" }
+            ["price-api"] = new() { Address = "http://price-api:8080" }
         }
     },
     new ClusterConfig
@@ -156,7 +158,7 @@ static ClusterConfig[] GetClusters() =>
         ClusterId = "search-cluster",
         Destinations = new Dictionary<string, DestinationConfig>
         {
-            ["search-api"] = new() { Address = "https://search-api" }
+            ["search-api"] = new() { Address = "http://search-api:8080" }
         }
     },
     new ClusterConfig
@@ -164,7 +166,7 @@ static ClusterConfig[] GetClusters() =>
         ClusterId = "notifications-cluster",
         Destinations = new Dictionary<string, DestinationConfig>
         {
-            ["notification-api"] = new() { Address = "https://notification-api" }
+            ["notification-api"] = new() { Address = "http://notification-api:8080" }
         }
     }
 ];

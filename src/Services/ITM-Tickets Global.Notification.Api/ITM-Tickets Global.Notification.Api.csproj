@@ -10,7 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.2.0" />
+    <!-- SignalR ya viene en el framework Microsoft.AspNetCore.App de .NET 10. -->
   </ItemGroup>
 
   <ItemGroup>

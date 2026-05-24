@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.AspNetCore.SignalR;
 using ITM_Tickets_Global.Notification.Api.Hubs;
+using ITM_Tickets_Global.Shared.Events;
 
 namespace ITM_Tickets_Global.Notification.Api.Consumers;
 
@@ -78,25 +79,9 @@ public class TicketReadyConsumer : IConsumer<TicketReadyEvent>
     }
 }
 
-public record OrderConfirmedEvent
-{
-    public Guid OrderId { get; init; }
-    public Guid UserId { get; init; }
-    public string Email { get; init; } = string.Empty;
-    public DateTime ConfirmedAt { get; init; }
-    public List<TicketIssuedEvent> Tickets { get; init; } = [];
-}
-
-public record TicketIssuedEvent
-{
-    public Guid TicketId { get; init; }
-    public Guid EventId { get; init; }
-    public string EventName { get; init; } = string.Empty;
-    public string Section { get; init; } = string.Empty;
-    public int Row { get; init; }
-    public int SeatNumber { get; init; }
-    public string QrCode { get; init; } = string.Empty;
-}
+// OrderConfirmedEvent y TicketIssued ahora viven en ITM_Tickets_Global.Shared.Events
+// (compartidos con Order.Api). El consumer arriba usa Shared.Events.OrderConfirmedEvent
+// y para los tickets usamos Shared.Events.TicketIssued (record positional).
 
 public record TicketReadyEvent
 {

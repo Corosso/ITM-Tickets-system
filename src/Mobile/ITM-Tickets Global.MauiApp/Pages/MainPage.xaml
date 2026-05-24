@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ITM_Tickets_Global.MauiApp.Pages.MainPage"
+             Title="Buscar eventos"
+             BackgroundColor="White">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="15">
+            <Label x:Name="WelcomeLabel" FontSize="18" FontAttributes="Bold" />
+
+            <Border BackgroundColor="#f4f6f8" Stroke="Transparent" StrokeShape="RoundRectangle 10" Padding="15">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="🔍 Búsqueda" FontAttributes="Bold" />
+                    <Entry x:Name="QueryEntry" Placeholder="Buscar (ej: festival, jazz, flamenco)" />
+                    <Entry x:Name="VibeEntry" Placeholder="Vibe (opcional, ej: fiesta tranquila)" />
+                    <Button Text="Buscar" Clicked="OnSearchClicked"
+                            BackgroundColor="{StaticResource Primary}" TextColor="White" CornerRadius="6" />
+                </VerticalStackLayout>
+            </Border>
+
+            <CollectionView x:Name="EventsList">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,5" Stroke="#ddd" StrokeShape="RoundRectangle 8" Padding="10">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="16" />
+                                <Label Text="{Binding Description}" FontSize="13" TextColor="#555" />
+                                <Label FontSize="12" TextColor="#888">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="📍 " />
+                                            <Span Text="{Binding Venue}" />
+                                            <Span Text=", " />
+                                            <Span Text="{Binding City}" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+                                <Button Text="Comprar 1 asiento VIP (aleatorio)"
+                                        Clicked="OnBuyClicked"
+                                        CommandParameter="{Binding Id}"
+                                        BackgroundColor="{StaticResource Accent}"
+                                        TextColor="White" CornerRadius="6" Margin="0,8,0,0" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Border x:Name="CorrelationFrame" IsVisible="False"
+                    BackgroundColor="#fff7e0" Stroke="#e9b949" StrokeShape="RoundRectangle 8" Padding="10" Margin="0,10,0,0">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="🔗 Correlation ID de la última compra"
+                           FontAttributes="Bold" FontSize="13" TextColor="#7a5d00" />
+                    <Label Text="Buscalo en docker logs order-api / inventory-api / notification-api"
+                           FontSize="11" TextColor="#7a5d00" />
+                    <Entry x:Name="CorrelationEntry" IsReadOnly="True" FontSize="13" />
+                    <Button Text="Copiar Correlation ID" Clicked="OnCopyCorrelationClicked"
+                            BackgroundColor="#e9b949" TextColor="White" CornerRadius="6" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="🎟 Tickets recibidos por SignalR" FontAttributes="Bold" Margin="0,20,0,5" />
+            <CollectionView x:Name="TicketsList">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border BackgroundColor="#e6f7ec" Stroke="#3aaa5a" StrokeShape="RoundRectangle 8" Padding="10" Margin="0,5">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding EventName}" FontAttributes="Bold" />
+                                <Label>
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="Sección: " />
+                                            <Span Text="{Binding Section}" FontAttributes="Bold" />
+                                            <Span Text="  Fila: " />
+                                            <Span Text="{Binding Row}" FontAttributes="Bold" />
+                                            <Span Text="  Asiento: " />
+                                            <Span Text="{Binding SeatNumber}" FontAttributes="Bold" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+                                <Label Text="{Binding QrCode, StringFormat='QR: {0}'}" FontSize="11" TextColor="#3aaa5a" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Label x:Name="LogLabel" FontSize="12" TextColor="#888" Margin="0,15,0,0" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

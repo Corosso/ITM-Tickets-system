@@ -14,6 +14,8 @@ builder.Services.AddSingleton<PriceService>();
 
 var app = builder.Build();
 
+app.UseCorrelationId();
+
 app.MapGet("/api/prices/{eventId:guid}", async (Guid eventId, PriceService priceService) =>
 {
     var prices = await priceService.GetPricesAsync(eventId);

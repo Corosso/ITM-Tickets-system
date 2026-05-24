@@ -25,18 +25,11 @@ spec:
           env:
             - name: ASPNETCORE_URLS
               value: http://+:8080
-            - name: RabbitMQ__Host
-              value: rabbitmq.itm-tickets.svc.cluster.local
-            - name: RabbitMQ__Username
+            - name: ConnectionStrings__RabbitMQ
               valueFrom:
                 secretKeyRef:
                   name: itm-tickets-secrets
-                  key: rabbitmq-username
-            - name: RabbitMQ__Password
-              valueFrom:
-                secretKeyRef:
-                  name: itm-tickets-secrets
-                  key: rabbitmq-password
+                  key: rabbitmq-connection
           resources:
             requests:
               cpu: 100m

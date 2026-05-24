@@ -21,29 +21,15 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-              name: http-health
-            - containerPort: 5002
-              name: grpc
+              name: http
           env:
             - name: ASPNETCORE_URLS
-              value: http://+:8080;https://+:5002
+              value: http://+:8080
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
                   name: itm-tickets-secrets
                   key: postgres-connection
-            - name: RabbitMQ__Host
-              value: rabbitmq.itm-tickets.svc.cluster.local
-            - name: RabbitMQ__Username
-              valueFrom:
-                secretKeyRef:
-                  name: itm-tickets-secrets
-                  key: rabbitmq-username
-            - name: RabbitMQ__Password
-              valueFrom:
-                secretKeyRef:
-                  name: itm-tickets-secrets
-                  key: rabbitmq-password
           resources:
             requests:
               cpu: 100m
